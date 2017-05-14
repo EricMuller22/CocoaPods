@@ -146,15 +146,22 @@ module Pod
             @xcconfig.to_hash['HEADER_SEARCH_PATHS'].should == expected
           end
 
-          it 'adds the sandbox public headers search paths to the xcconfig, with quotes, as system headers' do
-            expected = "$(inherited) -isystem \"#{config.sandbox.public_headers.search_paths(Platform.ios).join('" -isystem "')}\""
-            @xcconfig.to_hash['OTHER_CFLAGS'].should == expected
+          describe 'with a pod target inhibiting warnings' do
+            def pod_target(spec, target_definition)
+              target_definition.set_inhibit_warnings_for_pod(spec.name, true)
+              fixture_pod_target(spec, false, {}, [], Platform.new(:ios, '6.0'), [target_definition])
+            end
+
+            it 'adds the sandbox public headers search paths to the xcconfig, with quotes, as system headers' do
+              expected = "$(inherited) -isystem \"#{config.sandbox.public_headers.search_paths(Platform.ios).join('" -isystem "')}\""
+              @xcconfig.to_hash['OTHER_CFLAGS'].should == expected
+            end
           end
 
           it 'adds the dependent pods module map file to OTHER_CFLAGS' do
             @pod_targets.each { |pt| pt.stubs(:defines_module? => true) }
             @xcconfig = @generator.generate
-            expected = '$(inherited) -fmodule-map-file="${PODS_ROOT}/Headers/Private/BananaLib/BananaLib.modulemap" -isystem "${PODS_ROOT}/Headers/Public/BananaLib"'
+            expected = '$(inherited) -fmodule-map-file="${PODS_ROOT}/Headers/Private/BananaLib/BananaLib.modulemap"'
             @xcconfig.to_hash['OTHER_CFLAGS'].should == expected
           end
 
@@ -214,16 +221,8 @@ module Pod
             end
 
             it 'does not include framework header paths as local headers for pods that are linked statically' do
-              monkey_headers = '-iquote "${PODS_CONFIGURATION_BUILD_DIR}/monkey.framework/Headers"'
-              @xcconfig = @generator.generate
-              @xcconfig.to_hash['OTHER_CFLAGS'].should.not.include monkey_headers
-            end
-
-            it 'includes the public header paths as system headers' do
-              expected = '$(inherited) -iquote "${PODS_CONFIGURATION_BUILD_DIR}/OrangeFramework/OrangeFramework.framework/Headers" -isystem "${PODS_ROOT}/Headers/Public/monkey"'
-              @generator.stubs(:pod_targets).returns([@pod_targets.first, pod_target(fixture_spec('orange-framework/OrangeFramework.podspec'), @target_definition)])
-              @xcconfig = @generator.generate
-              @xcconfig.to_hash['OTHER_CFLAGS'].should == expected
+              @xcconfig.to_hash['OTHER_CFLAGS'].should.be.nil
+              @xcconfig.to_hash['HEADER_SEARCH_PATHS'].should.be.nil
             end
 
             it 'includes the public header paths as user headers' do
@@ -263,8 +262,8 @@ module Pod
             end
 
             it 'adds the framework header paths to the xcconfig, with quotes, as local headers' do
-              expected = '$(inherited) -iquote "${PODS_CONFIGURATION_BUILD_DIR}/BananaLib-iOS/BananaLib.framework/Headers" -iquote "${PODS_CONFIGURATION_BUILD_DIR}/OrangeFramework-iOS/OrangeFramework.framework/Headers"'
-              @xcconfig.to_hash['OTHER_CFLAGS'].should == expected
+              expected = '$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/BananaLib-iOS/BananaLib.framework/Headers" "${PODS_CONFIGURATION_BUILD_DIR}/OrangeFramework-iOS/OrangeFramework.framework/Headers"'
+              @xcconfig.to_hash['HEADER_SEARCH_PATHS'].should == expected
             end
           end
 
@@ -274,8 +273,23 @@ module Pod
             end
 
             it 'adds the framework header paths to the xcconfig, with quotes, as local headers' do
-              expected = '$(inherited) -iquote "${PODS_CONFIGURATION_BUILD_DIR}/OrangeFramework/OrangeFramework.framework/Headers"'
-              @xcconfig.to_hash['OTHER_CFLAGS'].should == expected
+              expected = '$(inherited) "${PODS_CONFIGURATION_BUILD_DIR}/OrangeFramework/OrangeFramework.framework/Headers"'
+              @xcconfig.to_hash['HEADER_SEARCH_PATHS'].should == expected
+            end
+          end
+
+          describe 'with a pod target inhibiting warnings' do
+            def pod_target(spec, target_definition)
+              target_definition.set_inhibit_warnings_for_pod(spec.name, true)
+              fixture_pod_target(spec, false, {}, [], Platform.new(:ios, '6.0'), [target_definition])
+            end
+
+            it 'adds the framework build path to the xcconfig, with quotes, as system framework search paths' do
+              @xcconfig.to_hash['OTHER_CFLAGS'].should.include '-iframework "${PODS_CONFIGURATION_BUILD_DIR}/OrangeFramework"'
+            end
+
+            it 'adds the framework header paths to the xcconfig, with quotes, as system headers' do
+              @xcconfig.to_hash['OTHER_CFLAGS'].should.include '-isystem "${PODS_CONFIGURATION_BUILD_DIR}/OrangeFramework/OrangeFramework.framework/Headers"'
             end
           end
 

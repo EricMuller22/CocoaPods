@@ -18,6 +18,10 @@ To install release candidates run `[sudo] gem install cocoapods --pre`
 * Improve performance of Pods project generator by skipping native targets for which dependent targets have already been added.
   [Jacek Suliga](https://github.com/jmkk)
 
+* Silence warnings in headers for Pods with `inhibit_warnings => true`  
+  [Guillaume Algis](https://github.com/guillaumealgis)
+  [#6401](https://github.com/CocoaPods/CocoaPods/pull/6401)
+
 ##### Bug Fixes
 
 * Remove [system] declaration attribute from generated module maps  

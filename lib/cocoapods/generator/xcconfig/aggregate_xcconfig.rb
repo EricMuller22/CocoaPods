@@ -101,35 +101,55 @@ module Pod
         #         the pod targets.
         #
         def settings_to_import_pod_targets
-          if target.requires_frameworks?
-            build_pod_targets = pod_targets.select(&:should_build?)
-            framework_header_search_paths = build_pod_targets.map do |target|
-              "#{target.build_product_path}/Headers"
+          header_search_paths = []
+          silenced_header_search_paths = []
+          silenced_frameworks = []
+          pod_targets.each do |target|
+            target_header_search_paths = if target.should_build? && target.requires_frameworks?
+                                           ["#{target.build_product_path}/Headers"]
+                                         else
+                                           target.sandbox.public_headers.search_paths(target.platform)
+                                         end
+            header_search_paths += target_header_search_paths
+            if target.inhibit_warnings?
+              silenced_header_search_paths += target_header_search_paths
+              if target.requires_frameworks? && target.should_build?
+                silenced_frameworks.push(target.configuration_build_dir)
+              end
             end
-            build_settings = {
-              # TODO: remove quote imports in CocoaPods 2.0
-              # Make framework headers discoverable by `import "…"`
-              'OTHER_CFLAGS' => XCConfigHelper.quote(framework_header_search_paths, '-iquote'),
-            }
-            if pod_targets.any? { |t| !t.should_build? }
-              # Make library headers discoverable by `#import "…"`
-              library_header_search_paths = target.sandbox.public_headers.search_paths(target.platform)
-              # TODO: remove quote imports in CocoaPods 2.0
-              build_settings['HEADER_SEARCH_PATHS'] = XCConfigHelper.quote(library_header_search_paths)
-              build_settings['OTHER_CFLAGS'] += ' ' + XCConfigHelper.quote(library_header_search_paths, '-isystem')
-            end
-            build_settings
-          else
-            # Make headers discoverable from $PODS_ROOT/Headers directory
-            header_search_paths = target.sandbox.public_headers.search_paths(target.platform)
-            {
-              # TODO: remove quote imports in CocoaPods 2.0
-              # by `#import "…"`
-              'HEADER_SEARCH_PATHS' => XCConfigHelper.quote(header_search_paths),
-              # by `#import <…>`
-              'OTHER_CFLAGS' => XCConfigHelper.quote(header_search_paths, '-isystem'),
-            }
           end
+
+          header_search_paths.uniq!
+          silenced_header_search_paths.uniq!
+
+          build_settings = {
+            # TODO: remove quote imports in CocoaPods 2.0
+            # Make headers discoverable with any syntax (quotes, brackets,
+            # @import, etc.)
+            'HEADER_SEARCH_PATHS' => XCConfigHelper.quote(header_search_paths),
+          }
+
+          # Use -isystem and -iframework for headers we want to treat as
+          # "system headers" so their warnings are silenced.
+          unless silenced_header_search_paths.empty? && silenced_frameworks.empty?
+            other_cflags = ''
+
+            isystem_paths = XCConfigHelper.quote(silenced_header_search_paths, '-isystem')
+            unless isystem_paths.empty?
+              other_cflags += isystem_paths
+            end
+            iframework_paths = XCConfigHelper.quote(silenced_frameworks, '-iframework')
+            unless iframework_paths.empty?
+              unless other_cflags.empty?
+                other_cflags += ' '
+              end
+              other_cflags += iframework_paths
+            end
+
+            build_settings['OTHER_CFLAGS'] = other_cflags
+          end
+
+          build_settings
         end
 
         #---------------------------------------------------------------------#

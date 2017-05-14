@@ -254,6 +254,16 @@ describe_cli 'pod' do
                             'install --no-repo-update'
     end
 
+    describe 'Installs a Pod with silenced warnings' do
+      behaves_like cli_spec 'install_inhibiting_warnings',
+                            'install --no-repo-update'
+    end
+
+    describe 'Installs a Pod as framework with silenced warnings' do
+      behaves_like cli_spec 'install_framework_inhibiting_warnings',
+                            'install --no-repo-update'
+    end
+
     describe 'Performs an installation using a custom workspace' do
       behaves_like cli_spec 'install_custom_workspace',
                             'install --no-repo-update'
