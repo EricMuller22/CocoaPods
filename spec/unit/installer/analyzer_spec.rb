@@ -704,10 +704,10 @@ module Pod
       it 'does include pod target if any spec is not used by tests only and is part of target definition' do
         spec1 = Resolver::ResolverSpecification.new(stub, false, nil)
         spec2 = Resolver::ResolverSpecification.new(stub, true, nil)
-        target_definition = stub
-        pod_target = stub(:name => 'Pod1', :target_definitions => [target_definition], :specs => [spec1.spec, spec2.spec])
+        target_definition = @podfile.target_definitions['SampleProject']
+        pod_target = stub(:name => 'Pod1', :target_definitions => [target_definition], :specs => [spec1.spec, spec2.spec], :pod_name => 'Pod1')
         resolver_specs_by_target = { target_definition => [spec1, spec2] }
-        @analyzer.send(:filter_pod_targets_for_target_definition, target_definition, [pod_target], resolver_specs_by_target).should == [pod_target]
+        @analyzer.send(:filter_pod_targets_for_target_definition, target_definition, [pod_target], resolver_specs_by_target, %w(Release)).should == { 'Release' => [pod_target] }
       end
 
       it 'does not include pod target if its used by tests only' do
@@ -716,7 +716,7 @@ module Pod
         target_definition = stub('TargetDefinition')
         pod_target = stub(:name => 'Pod1', :target_definitions => [target_definition], :specs => [spec1.spec, spec2.spec])
         resolver_specs_by_target = { target_definition => [spec1, spec2] }
-        @analyzer.send(:filter_pod_targets_for_target_definition, target_definition, [pod_target], resolver_specs_by_target).should.be.empty
+        @analyzer.send(:filter_pod_targets_for_target_definition, target_definition, [pod_target], resolver_specs_by_target, %w(Release)).should == { 'Release' => [] }
       end
 
       it 'does not include pod target if its not part of the target definition' do
@@ -724,7 +724,7 @@ module Pod
         target_definition = stub
         pod_target = stub(:name => 'Pod1', :target_definitions => [], :specs => [spec.spec])
         resolver_specs_by_target = { target_definition => [spec] }
-        @analyzer.send(:filter_pod_targets_for_target_definition, target_definition, [pod_target], resolver_specs_by_target).should.be.empty
+        @analyzer.send(:filter_pod_targets_for_target_definition, target_definition, [pod_target], resolver_specs_by_target, %w(Release)).should == { 'Release' => [] }
       end
 
       describe 'extension targets' do
